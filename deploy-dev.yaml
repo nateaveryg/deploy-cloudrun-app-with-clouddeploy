@@ -1,12 +1,12 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: core-run-continuous-dev
+  name: app-dev
 spec:
   template:
     spec:
       containers:
-      - image: core-run-continuous
+      - image: app
         resources:
           limits:
             cpu: 1000m

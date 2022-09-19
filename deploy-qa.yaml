@@ -1,9 +1,9 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: core-run-continuous-qa
+  name: app-qa
 spec:
   template:
     spec:
       containers:
-      - image: core-run-continuous
+      - image: app

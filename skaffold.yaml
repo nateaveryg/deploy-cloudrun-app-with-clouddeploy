@@ -1,7 +1,7 @@
 apiVersion: skaffold/v3alpha1
 kind: Config
 metadata: 
-  name: deploy-run-quickstart
+  name: cloud-run-app
 profiles:
 - name: dev
   manifests:
