@@ -24,7 +24,7 @@ gcloud builds submit \
   --config cloudbuild.yaml \
   --substitutions=_REGION=${REGION}
 
-sed -i'' -e "s/_PROJECT_ID/$PROJECT_ID/g" clouddeploy.yaml
+sed -i "s/_PROJECT_ID/$PROJECT_ID/g" clouddeploy.yaml
 
 gcloud deploy apply \
   --file=clouddeploy.yaml \
