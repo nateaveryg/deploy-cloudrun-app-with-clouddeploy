@@ -3,6 +3,14 @@ steps:
   entrypoint: 'pack'
   args: ['build',
          '--builder=gcr.io/buildpacks/builder',
-         '--publish',
-         '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
+         '--publish', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
   id: Build and package .net app
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+  args: 
+      [
+        "deploy", "releases", "create", "release-$_RELEASE_TIMESTAMP",
+        "--delivery-pipeline", "cloud-run-pipeline",
+        "--region", "${_REGION}",
+        "--images", "app=${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID"
+      ]
+  entrypoint: gcloud
