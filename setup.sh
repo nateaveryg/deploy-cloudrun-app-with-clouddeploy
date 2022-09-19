@@ -46,7 +46,7 @@ gcloud builds submit \
   --substitutions=_REGION=${REGION},_RELEASE_TIMESTAMP=${RELEASE_TIMESTAMP}
 
 gcloud beta deploy releases promote \
-    --release="release-${REL_TIMESTAMP}" \
+    --release="release-${RELEASE_TIMESTAMP}" \
     --delivery-pipeline=cloud-run-pipeline \
     --region=${REGION} \
     --quiet
