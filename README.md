@@ -1,5 +1,32 @@
 # Deploy Cloud Run Application with Cloud Deploy
 
+## Overview
+In this lab, you will deploy a .Net application to Cloud Run using Cloud Deploy. 
+You will build a container image with Cloud Build without using Dockerfile. 
+You will set up a pipeline with three target environments with Cloud Deploy and go through the steps to promote the release through environments. 
+Finally you will approve the release to be deployed to the production environment.
+
+![Cloud Build](./images/overview.png)
+
+**What is Cloud Build?**
+
+With [Cloud Build](https://cloud.google.com/build) you can build software quickly across all programming languages.
+
+**What is Cloud Deploy?**
+
+[Cloud Deploy](https://cloud.google.com/deploy) is a fully managed continuous delivery service. With Cloud Deploy you can create deployment pipelines for GKE, Anthos and Cloud Run.
+
+**What is Cloud Run?**
+
+With [Cloud Run](https://cloud.google.com/run) you can deploy scalable containerized applications written in any language (including Go, Python, Java, Node.js, .NET, and Ruby) on a fully managed platform.
+
+**What is Skaffold?**
+
+Skaffold is a command-line tool that enables continuous development for Kubernetes-native applications.
+
+[Cloud Deploy uses Skaffold](https://cloud.google.com/deploy/docs/using-skaffold) for render and deploy operations.
+
+## Environment Setup
 Make sure you're using gcloud CLI version 402.0.0 or greater.
 
 Check current version:
@@ -9,7 +36,7 @@ gcloud version
 
 Update to the latest:
 ```shell
-gcloud components update --version=4.0.2
+gcloud components update
 ```
 
 Set project environment variables:
@@ -37,110 +64,15 @@ gcloud artifacts repositories create containers-repo \
   --description="Containers repository"
 ```
 
-Configure docker to utilize your gcloud credentials when accessing Artifact Registry.
-```shell
-gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
-```
+## Review configuration files
 
-Clone the code:
+![Cloud Build](./images/config-files.png)
+
+Clone application source code:
 ```shell
 git clone https://github.com/gitrey/deploy-cloudrun-app-with-clouddeploy.git
 cd deploy-cloudrun-app-with-clouddeploy
 ```
-
-Review `cloudbuild.yaml` config file below - it will be used to create container image:
-```yaml
-steps:
-- name: 'gcr.io/k8s-skaffold/pack'
-  entrypoint: 'pack'
-  args: ['build', 
-         '--builder=gcr.io/buildpacks/builder', 
-         '--publish', '${REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
-  id: Build and package .net app
-```
-
-Create container image using Cloud Build:
-```shell
-gcloud builds submit \
-  --config cloudbuild.yaml \
-  --substitutions=_REGION=${REGION}
-```
-
-Review details in Cloud Build History:
-
-![Cloud Build](./images/cloudbuild.png)
-
-Review container image in Artifact Registry:
-
-![Cloud Build](./images/ar.png)
-
-Review deployment targets configuration files for Cloud Deploy.
-
-DEV env - `deploy-dev.yaml`:
-```yaml
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: app-dev
-spec:
-  template:
-    spec:
-      containers:
-      - image: app
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 128Mi
-```
-QA env - `deploy-qa.yaml`:
-```yaml
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: app-qa
-spec:
-  template:
-    spec:
-      containers:
-      - image: app
-```
-PROD env - `deploy-prod.yaml`:
-```yaml
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: app-prod
-spec:
-  template:
-    spec:
-      containers:
-      - image: app
-```
-
-Review `skaffold.yaml` file that lists out all three environments,
-and it's using Cloud Run as target service.
-```yaml
-apiVersion: skaffold/v3alpha1
-kind: Config
-metadata: 
-  name: cloud-run-app
-profiles:
-- name: dev
-  manifests:
-    rawYaml:
-    - deploy-dev.yaml
-- name: qa
-  manifests:
-    rawYaml:
-    - deploy-qa.yaml
-- name: prod
-  manifests:
-    rawYaml:
-    - deploy-prod.yaml
-deploy:
-  cloudrun: {}
-```
-
 Review Cloud Deploy pipeline config - `clouddeploy.yaml`
 ```yaml
 apiVersion: deploy.cloud.google.com/v1
@@ -183,8 +115,95 @@ metadata:
 description: Cloud Run PROD service
 run:
  location: projects/_PROJECT_ID/locations/us-south1
-
 ```
+
+Review `skaffold.yaml` file that defines three environments, and it's using Cloud Run as target service.
+```yaml
+apiVersion: skaffold/v3alpha1
+kind: Config
+metadata: 
+  name: cloud-run-app
+profiles:
+- name: dev
+  manifests:
+    rawYaml:
+    - deploy-dev.yaml
+- name: qa
+  manifests:
+    rawYaml:
+    - deploy-qa.yaml
+- name: prod
+  manifests:
+    rawYaml:
+    - deploy-prod.yaml
+deploy:
+  cloudrun: {}
+```
+
+Review service configuration files.
+
+`deploy-dev.yaml`
+```yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: app-dev
+spec:
+  template:
+    spec:
+      containers:
+      - image: app
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 128Mi
+```
+`deploy-qa.yaml`
+```yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: app-qa
+spec:
+  template:
+    spec:
+      containers:
+      - image: app
+```
+`deploy-prod.yaml`
+```yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: app-prod
+spec:
+  template:
+    spec:
+      containers:
+      - image: app
+```
+
+Review `cloudbuild.yaml` file with steps to build a container image and to create Cloud Deploy release:
+```shell
+steps:
+- name: 'gcr.io/k8s-skaffold/pack'
+  entrypoint: 'pack'
+  args: ['build',
+         '--builder=gcr.io/buildpacks/builder',
+         '--publish', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
+  id: Build and package .net app
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+  args: 
+      [
+        "deploy", "releases", "create", "release-$_RELEASE_TIMESTAMP",
+        "--delivery-pipeline", "cloud-run-pipeline",
+        "--region", "${_REGION}",
+        "--images", "app=${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID"
+      ]
+  entrypoint: gcloud
+```
+
+## Create Cloud Deploy Pipeline
 
 Replace _PROJECT_ID value in the `clouddeploy.yaml`:
 ```shell
@@ -199,29 +218,10 @@ gcloud deploy apply \
   --project=${PROJECT_ID}
 ```
 
-Review Cloud Deploy pipeline:
+Review created pipeline in Cloud Deploy.
 
-![Cloud Build](./images/cd-pipeline.png)
+## Build Container image and create a release
 
-![Cloud Build](./images/cd-pipeline-details.png)
-
-Review updated `cloudbuild-plus.yaml` file with new step to create Cloud Deploy release:
-```shell
-steps:
-- name: 'gcr.io/k8s-skaffold/pack'
-  entrypoint: 'pack'
-  args: ['build', '--builder=gcr.io/buildpacks/builder', '--publish', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
-  id: Build and package .net app
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-  args: 
-      [
-        "deploy", "releases", "create", "release-$_RELEASE_TIMESTAMP",
-        "--delivery-pipeline", "cloud-run-pipeline",
-        "--region", "${_REGION}",
-        "--images", "app=${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID"
-      ]
-  entrypoint: gcloud
-```
 Add Cloud Deploy Operator permissions to Cloud Build service account:
 ```shell
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
@@ -238,37 +238,17 @@ Create Cloud Deploy release:
 export RELEASE_TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 
 gcloud builds submit \
-  --config cloudbuild-plus.yaml \
+  --config cloudbuild.yaml \
   --substitutions=_REGION=${REGION},_RELEASE_TIMESTAMP=${RELEASE_TIMESTAMP}
 ```
 
-Review Cloud Deploy release.
+Review created release in Cloud Deploy. Wait until deployment to the Dev environment is complete.
 
-Deployment will start shortly:
+## Promote release to QA and PROD environments
 
-![Cloud Build](./images/clouddeploy-queued.png)
+Using Cloud Console or Cloud Shell, promote release to the next target(qa-env).
 
-Application deployment to Cloud Run is in progress:
-
-![Cloud Build](./images/clouddeploy-in-progress.png)
-
-Wait until Dev deployment is done:
-
-![Cloud Build](./images/clouddeploy-dev.png)
-
-View services in Cloud Run:
-
-![Cloud Build](./images/clouddeploy-view-in-cloudrun.png)
-
-Application in Cloud Run:
-
-![Cloud Build](./images/cloudrun-dev.png)
-
-Using Cloud Console or Cloud Shell, promote release to the next target(app-qa).
-
-![Cloud Build](./images/cloud-deploy-promote.png)
-
-If you want to promote with Cloud Shell, set RELEASE env variable to correct release value and run gcloud command to promote the release.
+Promote the release with Cloud Shell, run gcloud command to promote the release.
 ```shell
 gcloud beta deploy releases promote \
     --release="release-${RELEASE_TIMESTAMP}" \
@@ -277,20 +257,21 @@ gcloud beta deploy releases promote \
     --quiet
 ```
 
-Promote release to the next target(app-prod).
+Wait until deployment to QA environment is done. Promote release to the next target(prod-env).
 
 ```shell
 gcloud beta deploy releases promote \
-    --release=${RELEASE} \
+    --release="release-${RELEASE_TIMESTAMP}" \
     --delivery-pipeline=cloud-run-pipeline \
     --region=${REGION} \
     --quiet
 ```
+Open Cloud Deploy in Cloud Console and approve the release for production deployment.
 
+![Cloud Build](./images/cloud-deploy-approve.png)
 Review Cloud Deploy pipeline state and available [DORA metrics](https://cloud.google.com/deploy/docs/metrics?_ga=2.157539578.-1719619211.1663508373) ("deployment count", "deployment frequency", "deployment failure rate").
 
 
-![Cloud Build](./images/cloud-deploy-status.png)
 
 | Metric                  | Description                                                                                                                                                        |
 |-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -302,4 +283,18 @@ Review deployed applications in Cloud Run:
 
 ![Cloud Build](./images/cloud-run-services.png)
 
-### Congratulations!
+## Congratulations!
+Congratulations, you finished the codelab!
+
+What we’ve covered:
+
+- How to create Cloud Deploy pipeline
+- How to create container image for .Net application with Cloud Build
+- How to deploy application to Cloud Run with Cloud Deploy
+- How to promote Cloud Deploy releases
+
+### Clean up
+To avoid incurring charges to your Google Cloud account for the resources used in this tutorial, either delete the project that contains the resources, or keep the project and delete the individual resources.
+
+### Deleting the project
+The easiest way to eliminate billing is to delete the project that you created for the tutorial.
