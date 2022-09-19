@@ -18,12 +18,6 @@ gcloud artifacts repositories create containers-repo \
   --location=${REGION} \
   --description="Containers repository"
 
-gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
-
-gcloud builds submit \
-  --config cloudbuild.yaml \
-  --substitutions=_REGION=${REGION}
-
 sed -i "s/_PROJECT_ID/$PROJECT_ID/g" clouddeploy.yaml
 
 gcloud deploy apply \
@@ -42,7 +36,7 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 export RELEASE_TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 
 gcloud builds submit \
-  --config cloudbuild-plus.yaml \
+  --config cloudbuild.yaml \
   --substitutions=_REGION=${REGION},_RELEASE_TIMESTAMP=${RELEASE_TIMESTAMP}
 
 gcloud beta deploy releases promote \
@@ -50,4 +44,3 @@ gcloud beta deploy releases promote \
     --delivery-pipeline=cloud-run-pipeline \
     --region=${REGION} \
     --quiet
-
