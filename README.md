@@ -233,9 +233,11 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 
 Create Cloud Deploy release:
 ```shell
+export RELEASE_TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
+
 gcloud builds submit \
   --config cloudbuild-plus.yaml \
-  --substitutions=_REGION=${REGION}
+  --substitutions=_REGION=${REGION},_RELEASE_TIMESTAMP=${RELEASE_TIMESTAMP}
 ```
 
 Review Cloud Deploy release.
@@ -266,10 +268,8 @@ Using Cloud Console or Cloud Shell, promote release to the next target(app-qa).
 
 If you want to promote with Cloud Shell, set RELEASE env variable to correct release value and run gcloud command to promote the release.
 ```shell
-export RELEASE=rel-75d22eff-8b9d-4436-8084-7bd6de3f46b2
-
 gcloud beta deploy releases promote \
-    --release=${RELEASE} \
+    --release="release-${RELEASE_TIMESTAMP}" \
     --delivery-pipeline=cloud-run-pipeline \
     --region=${REGION} \
     --quiet
