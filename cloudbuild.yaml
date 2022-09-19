@@ -1,5 +1,8 @@
 steps:
 - name: 'gcr.io/k8s-skaffold/pack'
   entrypoint: 'pack'
-  args: ['build', '--builder=gcr.io/buildpacks/builder', '--publish', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
+  args: ['build',
+         '--builder=gcr.io/buildpacks/builder',
+         '--publish',
+         '${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
   id: Build and package .net app
