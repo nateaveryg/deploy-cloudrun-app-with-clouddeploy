@@ -1,6 +1,6 @@
 # Deploy Cloud Run Application with Cloud Deploy
 
-Make sure you're using gcloud CLI version 403.0.0 or greater.
+Make sure you're using gcloud CLI version 402.0.0 or greater.
 
 Check current version:
 ```shell
@@ -9,7 +9,7 @@ gcloud version
 
 Update to the latest:
 ```shell
-gcloud components update --version=4.0.3
+gcloud components update --version=4.0.2
 ```
 
 Set project environment variables:
@@ -53,7 +53,9 @@ Review `cloudbuild.yaml` config file below - it will be used to create container
 steps:
 - name: 'gcr.io/k8s-skaffold/pack'
   entrypoint: 'pack'
-  args: ['build', '--builder=gcr.io/buildpacks/builder', '--publish', '${REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
+  args: ['build', 
+         '--builder=gcr.io/buildpacks/builder', 
+         '--publish', '${REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID']
   id: Build and package .net app
 ```
 
@@ -148,18 +150,18 @@ metadata:
 description: application deployment pipeline
 serialPipeline:
  stages:
- - targetId: app-dev
+ - targetId: dev-env
    profiles: [dev]
- - targetId: app-qa
+ - targetId: qa-env
    profiles: [qa]
- - targetId: app-prod
+ - targetId: prod-env
    profiles: [prod]
 ---
 
 apiVersion: deploy.cloud.google.com/v1
 kind: Target
 metadata:
- name: app-dev
+ name: dev-env
 description: Cloud Run development service
 run:
  location: projects/_PROJECT_ID/locations/us-west1
@@ -168,7 +170,7 @@ run:
 apiVersion: deploy.cloud.google.com/v1
 kind: Target
 metadata:
- name: app-qa
+ name: qa-env
 description: Cloud Run QA service
 run:
  location: projects/_PROJECT_ID/locations/us-central1
@@ -177,7 +179,7 @@ run:
 apiVersion: deploy.cloud.google.com/v1
 kind: Target
 metadata:
- name: app-prod
+ name: prod-env
 description: Cloud Run PROD service
 run:
  location: projects/_PROJECT_ID/locations/us-south1
@@ -213,7 +215,7 @@ steps:
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
   args: 
       [
-        "deploy", "releases", "create", "rel-$BUILD_ID",
+        "deploy", "releases", "create", "release-$_RELEASE_TIMESTAMP",
         "--delivery-pipeline", "cloud-run-pipeline",
         "--region", "${_REGION}",
         "--images", "app=${_REGION}-docker.pkg.dev/${PROJECT_ID}/containers-repo/app:$BUILD_ID"
@@ -293,7 +295,7 @@ Review Cloud Deploy pipeline state and available [DORA metrics](https://cloud.go
 | Metric                  | Description                                                                                                                                                        |
 |-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Number of deployments   | The total number of successful and failed deployments to the final target in your delivery pipeline.                                                                            | 
-| Deployment frequency    | How often the delivery pipeline deploys to the final target in your delivery pipeline. One of the four key metrics defined by the DevOps Research and Assessment (DORA) program. | 
+| Deployment frequency    | How often the delivery pipeline deploys to the final target in your delivery pipeline.<br/>One of the four key metrics defined by the DevOps Research and Assessment (DORA) program. | 
 | Deployment failure rate | The percentage of failed rollouts to the final target in your delivery pipeline.                                                                                                | 
 
 Review deployed applications in Cloud Run:
