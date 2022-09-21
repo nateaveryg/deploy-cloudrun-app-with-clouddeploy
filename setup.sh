@@ -57,4 +57,5 @@ gcloud beta deploy releases promote \
     --release="release-${RELEASE_TIMESTAMP}" \
     --delivery-pipeline=cloud-run-pipeline \
     --region=${REGION} \
+    --to-target=qa-env \
     --quiet
